@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+  {% if error %}
+    <div class="notice">{{ error }}</div>
+  {% endif %}
+  {% if notice %}
+    <div class="notice" style="background:#eefaf4; border-color:#ccebd8; color:#22543d;">{{ notice }}</div>
+  {% endif %}
+  <h3>환자 등록</h3>
+  <form action="/counselor/patients" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+    <div class="form-row">
+      <label>환자 아이디</label>
+      <input name="username" placeholder="patient_001" autocomplete="username" required>
+    </div>
+    <div class="form-row">
+      <label>PIN</label>
+      <input name="pin" type="password" autocomplete="new-password" required>
+    </div>
+    <div class="form-row">
+      <label>이름</label>
+      <input name="full_name" placeholder="홍길동" required>
+    </div>
+    <div class="form-row">
+      <label>나이</label>
+      <input name="age" type="number" min="1" max="120" required>
+    </div>
+    <div class="form-row">
+      <label>성별</label>
+      <select name="gender" required>
+        <option value="male">남성</option>
+        <option value="female">여성</option>
+        <option value="other">기타</option>
+        <option value="unknown">미입력</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>거주지 (선택)</label>
+      <input name="residence" placeholder="서울">
+    </div>
+    <div class="form-row">
+      <label>도우미 유의 사항 (선택)</label>
+      <textarea name="assistant_guidance" rows="3" placeholder="예: 상담 초반엔 수면/식사 여부부터 질문"></textarea>
+    </div>
+    <button class="btn" type="submit">환자 추가</button>
+  </form>
+  <hr>
+  <h3>환자 대시보드</h3>
+  {% if users %}
+    <div class="table-wrap">
+      <table class="table counselor-patient-table">
+        <thead><tr><th>환자 아이디</th><th>이름</th><th>나이</th><th>성별</th><th>거주지</th><th class="nowrap">대화 수</th><th class="nowrap">최신 위험</th><th class="nowrap">최신 에너지</th><th class="nowrap">마지막 대화</th><th>보기</th></tr></thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td>{{ user.username }}</td>
+              <td>{{ user.full_name }}</td>
+              <td>{{ user.age or '-' }}</td>
+              <td>{{ user.gender_label or '-' }}</td>
+              <td>{{ user.residence or '-' }}</td>
+              <td>{{ user.message_count }}</td>
+              <td>{{ user.latest_risk_score_display }}</td>
+              <td>{{ user.latest_energy_magnitude_display }}</td>
+              <td>{{ user.last_message_at_display }}</td>
+              <td>
+                <a href="/counselor/user/{{ user.id }}">상세 보기</a>
+                {% if user.message_count|int == 0 %}
+                  <div class="muted">대화 없음</div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">등록된 환자가 없습니다.</p>
+  {% endif %}
+</div>
+{% endblock %}

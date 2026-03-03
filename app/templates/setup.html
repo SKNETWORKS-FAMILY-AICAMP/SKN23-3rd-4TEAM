@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+  <h2>관리자 초기 설정</h2>
+  {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+  <form action="/setup" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+    <div class="form-row">
+      <label>관리자 코드</label>
+      <input name="username" required>
+    </div>
+    <div class="form-row">
+      <label>관리자 PIN</label>
+      <input name="pin" type="password" autocomplete="new-password" required>
+    </div>
+    <button class="btn" type="submit">관리자 생성</button>
+  </form>
+</div>
+{% endblock %}

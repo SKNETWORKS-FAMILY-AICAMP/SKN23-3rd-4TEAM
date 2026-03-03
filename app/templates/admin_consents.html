@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+  <h3>서약서 관리</h3>
+  <p class="muted">환자의 AI 상담 보조 서약 동의 상태를 확인하고 관리합니다.</p>
+  {% if error %}
+    <div class="notice">{{ error }}</div>
+  {% endif %}
+  {% if notice %}
+    <div class="notice" style="background:#eefaf4; border-color:#ccebd8; color:#22543d;">{{ notice }}</div>
+  {% endif %}
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>환자 코드</th>
+          <th>휴대폰</th>
+          <th>동의 상태</th>
+          <th>버전</th>
+          <th>동의 시각</th>
+          <th>철회 시각</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if consents %}
+          {% for row in consents %}
+            <tr>
+              <td>{{ row.username }}</td>
+              <td>{{ row.phone or '-' }}</td>
+              <td>
+                {% if row.consent_given|int == 1 %}
+                  <span class="badge" style="background:#d6f4df;">동의</span>
+                {% else %}
+                  <span class="badge" style="background:#f8d9d9;">미동의</span>
+                {% endif %}
+              </td>
+              <td>{{ row.consent_version or 'v1' }}</td>
+              <td>{{ row.agreed_at or '-' }}</td>
+              <td>{{ row.revoked_at or '-' }}</td>
+              <td>
+                {% if row.consent_given|int == 1 %}
+                  <form action="/admin/consents/{{ row.user_id }}/revoke" method="post" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+                    <button class="btn secondary" type="submit">철회 처리</button>
+                  </form>
+                {% else %}
+                  <form action="/admin/consents/{{ row.user_id }}/grant" method="post" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+                    <button class="btn" type="submit">동의 처리</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7" class="muted">환자 데이터가 없습니다.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:12px;">
+    <a class="btn ghost" href="/admin">관리자 홈으로 이동</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="panel">
+  <h2>상담자 로그인</h2>
+  {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+  <form action="/counselor/auth" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+    <div class="form-row">
+      <label>상담자 코드</label>
+      <input name="username" required>
+    </div>
+    <div class="form-row">
+      <label>PIN</label>
+      <input name="pin" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn" type="submit">로그인</button>
+  </form>
+</div>
+{% endblock %}

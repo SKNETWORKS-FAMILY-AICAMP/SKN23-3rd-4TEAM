@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-shell">
+  <div class="panel">
+    {% if error %}
+      <div class="notice">{{ error }}</div>
+    {% endif %}
+    {% if notice %}
+      <div class="notice" style="background:#eefaf4; border-color:#ccebd8; color:#22543d;">{{ notice }}</div>
+    {% endif %}
+
+    <h3>환자 {{ user.username }} 상세</h3>
+    <h4>환자 프로필</h4>
+    <form action="/counselor/user/{{ user.id }}/profile" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>이름</label>
+        <input name="full_name" value="{{ patient_profile.full_name if patient_profile else '' }}" required>
+      </div>
+      <div class="form-row">
+        <label>나이</label>
+        <input name="age" type="number" min="1" max="120" value="{{ patient_profile.age if patient_profile and patient_profile.age is not none else '' }}" required>
+      </div>
+      <div class="form-row">
+        <label>성별</label>
+        <select name="gender" required>
+          {% for option in gender_options %}
+            <option value="{{ option.value }}" {% if patient_profile and patient_profile.gender == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>거주지 (선택)</label>
+        <input name="residence" value="{{ patient_profile.residence if patient_profile else '' }}">
+      </div>
+      <div class="form-row">
+        <label>도우미 유의 사항</label>
+        <textarea name="assistant_guidance" rows="4" placeholder="예: 불면 호소 시 수면 루틴 질문부터 진행">{{ patient_profile.assistant_guidance if patient_profile else '' }}</textarea>
+      </div>
+      <button class="btn secondary" type="submit">프로필 저장</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h4>핵심 지표</h4>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-title">최근 위험 점수</div>
+        <div class="kpi-value">{{ dashboard.latest_risk_display if dashboard else '-' }}</div>
+        <div class="kpi-sub">{{ dashboard.risk_band }}</div>
+        <div class="muted">{{ dashboard.kpi_explanations.risk }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">최근 에너지 크기</div>
+        <div class="kpi-value">{{ dashboard.latest_energy_magnitude_display if dashboard else '-' }}</div>
+        <div class="kpi-sub">{{ dashboard.energy_band }}</div>
+        <div class="muted">{{ dashboard.kpi_explanations.energy }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">마지막 대화 시점</div>
+        <div class="kpi-value small">{{ dashboard.last_message_at_display if dashboard else '-' }}</div>
+        <div class="muted">{{ dashboard.kpi_explanations.angle }}</div>
+      </div>
+    </div>
+
+    <hr>
+    <h4>감정 수레바퀴</h4>
+    <div class="wheel-wrap">
+      <div class="wheel-visual">
+        <svg id="emotion-wheel-svg" class="emotion-wheel" viewBox="0 0 360 360" role="img" aria-label="감정 수레바퀴"></svg>
+        <div class="wheel-metrics">
+          <div class="kpi-title">정합성 점수</div>
+          <div id="wheel-consistency-score" class="kpi-value small">{{ dashboard.latest_emotion_alignment.consistency_score }}</div>
+          <div id="wheel-consistency-band" class="alignment-badge">{{ dashboard.latest_emotion_alignment.consistency_band }}</div>
+          <div id="wheel-angle-reliability" class="muted">
+            {% if dashboard.latest_energy.angle_reliable %}방향 해석 가능{% else %}방향 해석 불가(상쇄 상태){% endif %}
+          </div>
+          <div class="muted">변동성: {{ dashboard.emotion_volatility_display }} ({{ dashboard.emotion_volatility_band }})</div>
+          {% if dashboard.latest_emotion_alignment.acute_override_applied %}
+            <div class="alignment-badge band-high">급성 정서 신호 우선 표시</div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="wheel-legend">
+        <div id="emotion-wheel-legend" class="wheel-legend-items">
+          {% for item in dashboard.latest_emotion_profile_ko %}
+            <div class="badge">{{ item.label }}: {{ item.value_display }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <script type="application/json" id="emotion-wheel-data">{{ {"profile": dashboard.latest_emotion_profile, "labels_ko": dashboard.latest_emotion_labels_ko, "energy": dashboard.latest_energy, "alignment": dashboard.latest_emotion_alignment} | tojson }}</script>
+  </div>
+
+  <div class="panel">
+    <h4>에너지/위험 추이</h4>
+    <div class="table-wrap panel-scroller">
+      <table class="table">
+        <thead><tr><th>일자</th><th>대화 수</th><th>위험 평균</th><th>에너지 평균</th><th>평균 대화 길이</th></tr></thead>
+        <tbody>
+          {% for item in dashboard.daily_points %}
+            <tr>
+              <td>{{ item.date }}</td>
+              <td>{{ item.message_count }}</td>
+              <td>{{ item.avg_risk_score_display }}</td>
+              <td>{{ item.avg_energy_magnitude_display }}</td>
+              <td>{{ item.avg_msg_length }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="chart-wrap">
+      <svg id="trend-svg" width="960" height="220" viewBox="0 0 960 220" role="img" aria-label="위험/에너지 추이"></svg>
+    </div>
+    <script type="application/json" id="trend-data">{{ dashboard.daily_points | tojson }}</script>
+  </div>
+
+  <div class="panel">
+    <h4>최근 메시지 타임라인 (30건)</h4>
+    <div class="table-wrap panel-scroller">
+      <table class="table">
+        <thead><tr><th>시점</th><th>요약</th><th>대표 감정</th><th>위험</th><th>에너지</th><th>각도</th></tr></thead>
+        <tbody>
+          {% for point in dashboard.timeline_points %}
+            <tr>
+              <td>{{ point.created_at_display }}</td>
+              <td>{{ point.content_preview }}</td>
+              <td>{{ point.top_emotion_label_ko }}</td>
+              <td>{{ point.risk_score_display }}</td>
+              <td>{{ point.energy_magnitude_display }}</td>
+              <td>{{ point.energy_angle_display }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h4>상담 기록</h4>
+    <form action="/counselor/user/{{ user.id }}" method="get" class="inline-filter">
+      <label for="note-date-filter">조회 날짜</label>
+      <input id="note-date-filter" name="note_date" type="date" value="{{ selected_note_date or '' }}">
+      <button class="btn secondary" type="submit">불러오기</button>
+      <a class="btn ghost" href="/counselor/user/{{ user.id }}">전체 보기</a>
+    </form>
+    <form action="/counselor/user/{{ user.id }}/notes" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>기록 날짜 (선택)</label>
+        <input name="note_date" type="date" value="{{ selected_note_date or '' }}">
+      </div>
+      <div class="form-row">
+        <label>상담 요약 (필수)</label>
+        <textarea name="session_summary" rows="4" required></textarea>
+      </div>
+      <div class="form-row">
+        <label>개입 내용</label>
+        <textarea name="intervention_note" rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <label>추후 계획</label>
+        <textarea name="followup_plan" rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <label>상담사 위험수치(0~1)</label>
+        <input name="counselor_risk_level" type="number" min="0" max="1" step="0.01">
+      </div>
+      <button class="btn" type="submit">상담 기록 저장</button>
+    </form>
+
+    <hr>
+    <div class="comment-timeline">
+      {% if note_groups %}
+        {% for group in note_groups %}
+          <div class="comment-date">{{ group["date"] }}</div>
+          {% for note in group["items"] %}
+            <article class="comment-card">
+              <div class="comment-meta">{{ note.time_label }} · {{ note.counselor_username }} · 위험 {{ note.counselor_risk_level if note.counselor_risk_level is not none else '-' }}</div>
+              <div class="comment-summary">{{ note.session_summary }}</div>
+              {% if note.intervention_note %}
+                <div class="comment-body"><strong>개입:</strong> {{ note.intervention_note }}</div>
+              {% endif %}
+              {% if note.followup_plan %}
+                <div class="comment-body"><strong>추후 계획:</strong> {{ note.followup_plan }}</div>
+              {% endif %}
+            </article>
+          {% endfor %}
+        {% endfor %}
+      {% else %}
+        <div class="muted">상담 기록이 없습니다.</div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top:12px;">
+      <a class="btn ghost" href="{{ back_url }}">뒤로</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const svg = document.getElementById("trend-svg");
+  const script = document.getElementById("trend-data");
+  if (!svg || !script) return;
+  const points = JSON.parse(script.textContent || "[]");
+  if (!points.length) return;
+
+  const width = 960;
+  const height = 220;
+  const padX = 40;
+  const padY = 24;
+  const values = points.flatMap((p) => [p.avg_risk_score, p.avg_energy_magnitude]).filter((v) => typeof v === "number");
+  const maxV = values.length ? Math.max(...values, 1) : 1;
+  const step = points.length > 1 ? (width - padX * 2) / (points.length - 1) : 0;
+  const toY = (v) => height - padY - ((v || 0) / maxV) * (height - padY * 2);
+  const line = (key) => points.map((p, i) => `${padX + i * step},${toY(p[key])}`).join(" ");
+
+  svg.innerHTML = `
+    <rect x="0" y="0" width="${width}" height="${height}" fill="transparent"></rect>
+    <polyline fill="none" stroke="#c87c2a" stroke-width="2.5" points="${line("avg_risk_score")}"></polyline>
+    <polyline fill="none" stroke="#275d4e" stroke-width="2.5" points="${line("avg_energy_magnitude")}"></polyline>
+  `;
+})();
+
+</script>
+<script src="/static/emotion_wheel.js"></script>
+<script>
+(() => {
+  if (window.renderEmotionWheel) {
+    window.renderEmotionWheel({
+      svgId: "emotion-wheel-svg",
+      dataId: "emotion-wheel-data",
+      scoreId: "wheel-consistency-score",
+      bandId: "wheel-consistency-band",
+      reliabilityId: "wheel-angle-reliability",
+      legendId: "emotion-wheel-legend"
+    });
+  }
+})();
+</script>
+{% endblock %}

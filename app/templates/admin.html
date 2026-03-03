@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid">
+  <div class="panel">
+    {% if error %}
+      <div class="notice">{{ error }}</div>
+    {% endif %}
+    {% if notice %}
+      <div class="notice" style="background:#eefaf4; border-color:#ccebd8; color:#22543d;">{{ notice }}</div>
+    {% endif %}
+    <h3>위기 알림</h3>
+    {% if alerts %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>환자</th><th>점수</th><th>키워드</th><th>상태</th><th></th></tr></thead>
+          <tbody>
+            {% for alert in alerts %}
+              <tr>
+                <td>{{ alert.username }}</td>
+                <td>{{ alert.score }}</td>
+                <td>{{ alert.keywords }}</td>
+                <td>{{ alert.status }}</td>
+                <td>
+                  {% if alert.status != "resolved" %}
+                    <form action="/admin/alerts/{{ alert.id }}/resolve" method="post" class="inline">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+                      <button class="btn secondary" type="submit">확인</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">알림이 없습니다.</p>
+    {% endif %}
+  </div>
+  <div class="panel">
+    <h3>AI 설정</h3>
+    <p class="muted">저장 즉시 다음 요청부터 반영됩니다. API 키는 마스킹되어 표시됩니다.</p>
+    <form action="/admin/config/openai" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>GPT 모델</label>
+        <select id="openai-model-select" name="openai_model" data-current-model="{{ ai_config.openai_model }}" required>
+          <option value="{{ ai_config.openai_model }}">{{ ai_config.openai_model }} (현재)</option>
+        </select>
+        <div id="openai-model-status" class="muted" style="margin-top:6px;">모델 목록 불러오는 중...</div>
+      </div>
+      <div class="form-row">
+        <label>현재 API 키</label>
+        <input value="{{ ai_config.openai_api_key_masked }}" readonly>
+      </div>
+      <div class="form-row">
+        <label>새 API 키 (비우면 유지)</label>
+        <input name="openai_api_key" type="password" autocomplete="new-password" placeholder="sk-...">
+      </div>
+      <button class="btn" type="submit">OpenAI 설정 저장</button>
+    </form>
+    <hr>
+    <form action="/admin/config/prompts" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>시스템 프롬프트</label>
+        <textarea name="system_prompt" rows="6" required>{{ ai_config.system_prompt }}</textarea>
+      </div>
+      <div class="form-row">
+        <label>유저 프롬프트 템플릿</label>
+        <textarea name="user_prompt_template" rows="8" required>{{ ai_config.user_prompt_template }}</textarea>
+      </div>
+      <p class="muted">필수 플레이스홀더: <code>{doc_context}</code>, <code>{msg_context}</code>, <code>{user_text}</code> (선택: <code>{assistant_guidance}</code>)</p>
+      <button class="btn" type="submit">프롬프트 저장</button>
+    </form>
+    <hr>
+    <h4>환자 응답 프롬프트(v2 JSON)</h4>
+    <form action="/admin/config/patient-prompts" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>환자 시스템 프롬프트</label>
+        <textarea name="patient_system_prompt" rows="6" required>{{ ai_config.patient_system_prompt }}</textarea>
+      </div>
+      <div class="form-row">
+        <label>환자 유저 프롬프트 템플릿</label>
+        <textarea name="patient_user_prompt_template" rows="10" required>{{ ai_config.patient_user_prompt_template }}</textarea>
+      </div>
+      <p class="muted">필수 플레이스홀더: <code>{doc_context}</code>, <code>{msg_context}</code>, <code>{user_text}</code> (선택: <code>{assistant_guidance}</code>, <code>{session_meta}</code>)</p>
+      <p class="muted">필수 JSON 키: <code>empathy</code>, <code>summary</code>, <code>next_steps</code>, <code>safety_urgent</code>, <code>safety_actions</code>, <code>insufficient_data</code>, <code>internal_evidence</code></p>
+      <button class="btn" type="submit">환자 프롬프트(v2) 저장</button>
+    </form>
+    <form action="/admin/config/patient-prompts/apply-recommended" method="post" style="margin-top:10px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <button class="btn secondary" type="submit">권장 v2 적용(백업 포함)</button>
+    </form>
+    <p class="muted">마지막 수정: {{ ai_config.last_updated_at }} / {{ ai_config.last_updated_by }}</p>
+    <hr>
+    <h3>계정 관리</h3>
+    <form action="/admin/users" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>환자 아이디</label>
+        <input name="username" placeholder="patient_001" autocomplete="username" required>
+      </div>
+      <div class="form-row">
+        <label>PIN</label>
+        <input name="pin" type="password" autocomplete="new-password" required>
+      </div>
+      <div class="form-row">
+        <label>이름</label>
+        <input name="full_name" placeholder="홍길동" required>
+      </div>
+      <div class="form-row">
+        <label>나이</label>
+        <input name="age" type="number" min="1" max="120" required>
+      </div>
+      <div class="form-row">
+        <label>성별</label>
+        <select name="gender" required>
+          <option value="male">남성</option>
+          <option value="female">여성</option>
+          <option value="other">기타</option>
+          <option value="unknown">미입력</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>거주지 (선택)</label>
+        <input name="residence" placeholder="서울">
+      </div>
+      <div class="form-row">
+        <label>도우미 유의 사항 (선택)</label>
+        <textarea name="assistant_guidance" rows="3" placeholder="예: 초기 대화는 신체 상태(수면/식사) 확인 우선"></textarea>
+      </div>
+      <button class="btn" type="submit">환자 생성</button>
+    </form>
+    <hr>
+    <h4>상담자 생성</h4>
+    <form action="/admin/counselors" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>상담자 코드</label>
+        <input name="username" required>
+      </div>
+      <div class="form-row">
+        <label>휴대폰 번호</label>
+        <input name="phone" placeholder="010-1234-5678" autocomplete="tel" required>
+      </div>
+      <div class="form-row">
+        <label>PIN</label>
+        <input name="pin" type="password" autocomplete="new-password" required>
+      </div>
+      <button class="btn" type="submit">상담자 생성</button>
+    </form>
+    <hr>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>코드</th><th>역할</th><th>휴대폰</th><th>보기</th><th>삭제</th></tr></thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td>{{ user.username }}</td>
+              <td>{{ user.role }}</td>
+              <td>{{ user.phone or '-' }}</td>
+              <td>
+                {% if user.role in ['patient','counselor'] %}
+                  <a href="/admin/user/{{ user.id }}">대화 보기</a>
+                {% endif %}
+              </td>
+              <td>
+                {% if user.role in ['patient','counselor'] %}
+                  <form action="/admin/users/{{ user.id }}/delete" method="post" class="inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+                    <button class="btn secondary" type="submit">삭제</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="admin-quick-actions" style="margin-top:12px;">
+      <a class="btn ghost" href="/admin/consents">서약서 관리</a>
+      <a class="btn ghost" href="/admin/diagnostics/emotion">감정 진단 API</a>
+      <a class="btn ghost" href="/admin/diagnostics/response-quality">응답 품질 진단 API</a>
+      <a class="btn ghost" href="/rag/reindex">문서 재색인(PDF/DOCX)</a>
+      <a class="btn ghost" href="/admin/rag/index">문서 색인 현황</a>
+      <a class="btn ghost" href="/export/csv?scope=messages">CSV(대화만)</a>
+      <a class="btn ghost" href="/export/csv?scope=metrics">CSV(대화+지표)</a>
+      <a class="btn ghost" href="/counselor/login">상담자 로그인 링크</a>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const select = document.getElementById("openai-model-select");
+  const status = document.getElementById("openai-model-status");
+  if (!select) return;
+
+  fetch("/admin/config/models", { credentials: "same-origin" })
+    .then((response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then((payload) => {
+      const current = payload.current_model || select.dataset.currentModel || "";
+      const models = Array.isArray(payload.models) ? payload.models : [];
+      const unique = Array.from(new Set([current, ...models].filter(Boolean)));
+      if (!unique.length) {
+        if (status) status.textContent = "모델 목록이 비어 있습니다. 현재 값을 사용합니다.";
+        return;
+      }
+
+      select.innerHTML = "";
+      unique.forEach((modelName) => {
+        const option = document.createElement("option");
+        option.value = modelName;
+        option.textContent = modelName;
+        if (modelName === current) option.selected = true;
+        select.appendChild(option);
+      });
+
+      if (status) {
+        status.textContent = payload.error
+          ? `일부 목록만 표시: ${payload.error}`
+          : `총 ${unique.length}개 모델`;
+      }
+    })
+    .catch(() => {
+      if (status) status.textContent = "모델 목록 조회 실패. 현재 모델로 저장 가능합니다.";
+    });
+})();
+</script>
+{% endblock %}

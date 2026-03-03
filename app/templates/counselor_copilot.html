@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="notice">
+  OpenAI API 호출 시 코파일럿 대화 내용이 전송될 수 있습니다. 민감정보 입력에 주의하세요.
+</div>
+
+{% if error %}
+  <div class="notice">{{ error }}</div>
+{% endif %}
+
+<div class="grid">
+  <div class="panel">
+    <h3>스레드</h3>
+    <form action="/counselor/copilot/thread" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>새 스레드 이름</label>
+        <input name="title" placeholder="새 코파일럿 스레드">
+      </div>
+      <button class="btn" type="submit">스레드 생성</button>
+    </form>
+    <hr>
+    {% if threads %}
+      <ul>
+        {% for thread in threads %}
+          <li>
+            <a href="/counselor/copilot?thread_id={{ thread.id }}">{{ thread.title }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">생성된 스레드가 없습니다.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    {% if active_thread %}
+      <h3>{{ active_thread.title }}</h3>
+      <div id="copilot-messages" class="chat-box">
+        {% for message in messages %}
+          <div class="msg {{ message.role }}">{{ message.content }}</div>
+        {% endfor %}
+      </div>
+
+      <form action="/counselor/copilot/send" method="post"
+        hx-post="/counselor/copilot/send" hx-target="#copilot-messages" hx-swap="beforeend">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+        <input type="hidden" name="thread_id" value="{{ active_thread.id }}">
+        <div class="form-row">
+          <textarea name="content" rows="3" placeholder="상담 계획/개입 아이디어를 질문하세요." required></textarea>
+        </div>
+        <button class="btn" type="submit">전송</button>
+      </form>
+    {% else %}
+      <h3>코파일럿</h3>
+      <p class="muted">스레드를 먼저 생성한 뒤 대화를 시작하세요.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

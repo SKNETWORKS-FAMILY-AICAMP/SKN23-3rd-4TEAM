@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid">
+  <div class="panel">
+    <h3>문서 색인 현황</h3>
+    {% if error %}
+      <div class="notice">{{ error }}</div>
+    {% endif %}
+    {% if notice %}
+      <div class="notice" style="background:#eefaf4; border-color:#ccebd8; color:#22543d;">{{ notice }}</div>
+    {% endif %}
+    {% if warn %}
+      <div class="notice" style="background:#fff7e6; border-color:#f5d28d; color:#7b5310;">{{ warn }}</div>
+    {% endif %}
+    <div class="notice" style="background:#f8f5ea; border-color:#e6dbc2; color:#4c4231;">
+      현재 색인된 PDF/DOCX 문서/청크 수와 파싱 규칙을 보여줍니다.
+    </div>
+    <form action="/admin/rag/upload" method="post" enctype="multipart/form-data" style="margin:12px 0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="form-row">
+        <label>문서 업로드 (PDF/DOCX)</label>
+        <input type="file" name="document" accept=".pdf,.docx" required>
+      </div>
+      <button class="btn secondary" type="submit">문서 업로드</button>
+    </form>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>ID</th><th>제목</th><th>원본 경로</th><th>청크 수</th><th>생성 시각</th><th>미리보기</th></tr>
+        </thead>
+        <tbody>
+          {% if docs %}
+            {% for doc in docs %}
+              <tr>
+                <td>{{ doc.id }}</td>
+                <td>{{ doc.title }}</td>
+                <td>{{ doc.source }}</td>
+                <td>{{ doc.chunk_count }}</td>
+                <td>{{ doc.created_at }}</td>
+                <td><a href="/admin/rag/index?doc_id={{ doc.id }}">보기</a></td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="6" class="muted">색인된 문서가 없습니다. 먼저 문서 재색인을 실행하세요.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;">
+      <a class="btn ghost" href="/rag/reindex">문서 재색인(PDF/DOCX)</a>
+      <a class="btn ghost" href="/admin">관리자 홈</a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>파싱/색인 규칙</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <tbody>
+          <tr><th>업로드 저장 폴더</th><td>{{ parse_info.source_dir }}</td></tr>
+          <tr><th>Fallback 문서 폴더</th><td>{{ parse_info.fallback_dir }}</td></tr>
+          <tr><th>선택 규칙</th><td>{{ parse_info.selection_rule }}</td></tr>
+          <tr>
+            <th>대상 파일</th>
+            <td>
+              {% for name in parse_info.target_docs %}
+                <div>{{ name }}</div>
+              {% endfor %}
+            </td>
+          </tr>
+          <tr>
+            <th>우선 참고 문서 예시</th>
+            <td>
+              {% for name in parse_info.preferred_examples %}
+                <div>{{ name }}</div>
+              {% endfor %}
+            </td>
+          </tr>
+          <tr><th>텍스트 추출기</th><td>{{ parse_info.extractor }}</td></tr>
+          <tr><th>전처리 규칙</th><td>{{ parse_info.preprocess_rule }}</td></tr>
+          <tr><th>청크 규칙</th><td>{{ parse_info.chunking }}</td></tr>
+          <tr><th>임베딩 모델</th><td>{{ parse_info.embed_model }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    {% if selected_doc %}
+      <h4 style="margin-top:14px;">청크 미리보기: {{ selected_doc.title }}</h4>
+      {% if preview_chunks %}
+        <div class="chat-box">
+          {% for chunk in preview_chunks %}
+            <div class="msg assistant">
+              <div class="badge">chunk {{ chunk.chunk_idx }}</div>
+              <div>{{ chunk.chunk_text }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">미리볼 청크가 없습니다.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h3>계정 현황</h3>
+    <p class="muted">계정 생성/삭제는 관리자 홈에서 수행합니다.</p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>코드</th><th>역할</th><th>휴대폰</th><th>대화 조회</th></tr></thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td>{{ user.username }}</td>
+              <td>{{ user.role }}</td>
+              <td>{{ user.phone or '-' }}</td>
+              <td>
+                {% if user.role in ['patient', 'counselor'] %}
+                  <a href="/admin/user/{{ user.id }}">보기</a>
+                {% else %}
+                  <span class="muted">-</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;">
+      <a class="btn ghost" href="/admin">계정 관리 화면으로 이동</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

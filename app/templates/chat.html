@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="chat-shell">
+  <div class="notice">
+    OpenAI API 호출 시 대화 내용이 전송될 수 있습니다. 민감정보 입력에 주의하세요.
+  </div>
+  <div class="panel chat-panel">
+    <div class="chat-head">
+      <h3>대화</h3>
+      <span class="muted">Ctrl+Enter 전송</span>
+    </div>
+    <div id="chat-messages" class="chat-box">
+      {% for message in messages %}
+        <div class="msg {{ message.role }}">{{ message.content }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="chat-loading" class="typing-indicator htmx-indicator" aria-live="polite">
+      <span class="typing-dots"><span></span><span></span><span></span></span>
+      <span>답변 생성 중...</span>
+    </div>
+
+    <form id="chat-form" action="/chat/send" method="post"
+      data-csrf-token="{{ csrf_token_for(request) }}"
+      hx-post="/chat/send" hx-target="#chat-messages" hx-swap="beforeend" hx-indicator="#chat-loading">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token_for(request) }}">
+      <div class="chat-input">
+        <textarea id="chat-content" name="content" rows="3" placeholder="오늘의 감정이나 생각을 적어주세요." required></textarea>
+        <button id="chat-send-btn" class="btn" type="submit">보내기</button>
+      </div>
+      <div class="muted chat-hint">Enter 줄바꿈, Ctrl+Enter 전송</div>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  const form = document.getElementById("chat-form");
+  const textarea = document.getElementById("chat-content");
+  const sendButton = document.getElementById("chat-send-btn");
+  const chatMessages = document.getElementById("chat-messages");
+  if (!form || !textarea || !sendButton || !chatMessages) return;
+
+  const scrollToBottom = () => {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  };
+
+  scrollToBottom();
+
+  textarea.addEventListener("keydown", (event) => {
+    if (event.ctrlKey && event.key === 'Enter') {
+      event.preventDefault();
+      if (!form.classList.contains("htmx-request")) {
+        form.requestSubmit();
+      }
+    }
+  });
+
+  document.body.addEventListener("htmx:beforeRequest", (event) => {
+    if (event.detail.elt !== form) return;
+    const csrfToken = form.dataset.csrfToken || "";
+    if (csrfToken && event.detail.xhr) {
+      event.detail.xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+    }
+    textarea.value = "";
+    textarea.disabled = true;
+    sendButton.disabled = true;
+    sendButton.textContent = "전송 중...";
+  });
+
+  document.body.addEventListener("htmx:afterRequest", (event) => {
+    if (event.detail.elt !== form) return;
+    textarea.disabled = false;
+    sendButton.disabled = false;
+    sendButton.textContent = "보내기";
+    textarea.focus();
+    scrollToBottom();
+  });
+
+  document.body.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target && event.detail.target.id === "chat-messages") {
+      scrollToBottom();
+    }
+  });
+})();
+</script>
+{% endblock %}
