@@ -1,9 +1,7 @@
-# Secrets / local env
 .env
 .env.*
 !.env.example
 
-# Python / test artifacts
 .venv/
 __pycache__/
 *.py[cod]
@@ -15,24 +13,20 @@ __pycache__/
 .coverage.*
 htmlcov/
 
-# Editors / OS
 .DS_Store
 .idea/
 .vscode/
 
-# Runtime data
 data/*.db
 data/*.db-*
 data/*.sqlite
 data/*.sqlite3
 data/app.log
 
-# Uploaded source docs for local RAG (large/sensitive)
 data/rag_sources/
 
-# Local documents / notes
-glossary_KR.md
+**/*.md
+!README.md
+
 docs/
 tests/
-README.md
-시나리오.md
